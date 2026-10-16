@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>極限挑戰賽 - 3關連闖</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Orbitron', 'Noto Sans TC', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        .neon-glow-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.5), inset 0 0 10px rgba(6, 182, 212, 0.3);
+        }
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.8);
+        }
+        .neon-text-rose {
+            text-shadow: 0 0 8px rgba(244, 63, 94, 0.8);
+        }
+        .scanline {
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.3));
+            background-size: 100% 4px;
+        }
+        @keyframes flash-green {
+            0% { background-color: #052e16; }
+            50% { background-color: #15803d; }
+            100% { background-color: #22c55e; }
+        }
+        .flash-active {
+            animation: flash-green 0.15s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 overflow-x-hidden">
+
+    <!-- 遊戲主卡片容器 -->
+    <div class="w-full max-w-2xl bg-slate-900/90 border-2 border-cyan-500/50 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.25)] p-4 sm:p-6 flex flex-col gap-4 relative backdrop-blur-md overflow-hidden">
+        
+        <!-- Scanline 復古視覺疊加層 -->
+        <div class="pointer-events-none absolute inset-0 scanline opacity-20 z-10"></div>
+
+        <!-- 頂部頁眉：關卡切換 & 狀態 -->
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-2 border-b border-cyan-500/30 pb-3 z-20">
+            <div class="flex items-center gap-2">
+                <span class="text-xs bg-cyan-950 border border-cyan-500 text-cyan-400 font-bold px-2.5 py-1 rounded-md" id="level-badge">
+                    LEVEL 1 / 3
+                </span>
+                <h1 class="text-lg sm:text-xl font-black bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent" id="game-title">
+                    🎯 10秒射擊對決
+                </h1>
+            </div>
+            
+            <!-- 關卡跳轉按鈕組 -->
+            <div class="flex items-center gap-1.5 text-xs">
+                <button onclick="switchLevel(1)" id="btn-lvl-1" class="px-2.5 py-1 rounded border border-cyan-500 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40 font-bold transition">關卡1</button>
+                <button onclick="switchLevel(2)" id="btn-lvl-2" class="px-2.5 py-1 rounded border border-slate-700 bg-slate-800 text-slate-500 cursor-not-allowed font-bold transition" disabled>關卡2</button>
+                <button onclick="switchLevel(3)" id="btn-lvl-3" class="px-2.5 py-1 rounded border border-slate-700 bg-slate-800 text-slate-500 cursor-not-allowed font-bold transition" disabled>關卡3</button>
+            </div>
+        </div>
+
+        <!-- 關卡1資訊面板：10s射擊比分條 -->
+        <div id="panel-lvl1" class="space-y-2 bg-slate-950/80 p-3 rounded-xl border border-slate-800 z-20">
+            <div class="flex justify-between items-center text-xs font-bold">
+                <span class="text-cyan-400">🧑 玩家得分: <span id="p1-score" class="text-base text-cyan-300">0</span></span>
+                <span class="text-amber-400 text-sm">⏱️ <span id="p1-timer" class="text-lg font-black">10.0</span>s</span>
+                <span class="text-rose-400">🤖 AI得分: <span id="ai1-score" class="text-base text-rose-300">0</span></span>
+            </div>
+            <!-- 比分條 -->
+            <div class="grid grid-cols-2 gap-2 h-3 bg-slate-800 rounded-full overflow-hidden p-0.5">
+                <div class="w-full bg-slate-900 rounded-full overflow-hidden flex justify-end">
+                    <div id="p1-bar" class="h-full bg-cyan-400 transition-all duration-100 rounded-full w-0"></div>
+                </div>
+                <div class="w-full bg-slate-900 rounded-full overflow-hidden">
+                    <div id="ai1-bar" class="h-full bg-rose-500 transition-all duration-100 rounded-full w-0"></div>
+                </div>
+            </div>
+            <div id="p1-status" class="text-center text-xs text-slate-400 font-bold">對手 AI：每 5 秒射擊 3 次</div>
+        </div>
+
+        <!-- 關卡2資訊面板：2D跑酷 HUD -->
+        <div id="panel-lvl2" class="hidden justify-between items-center bg-slate-950/80 p-3 rounded-xl border border-slate-800 z-20">
+            <div class="flex items-center gap-1 text-rose-500 text-lg" id="p2-hearts">
+                ❤️ ❤️ ❤️
+            </div>
+            <div class="text-xs text-slate-300">
+                得分: <span id="p2-score" class="text-amber-400 font-bold text-base">0</span> / 200
+            </div>
+            <div class="text-xs text-slate-300">
+                存活: <span id="p2-timer" class="text-cyan-400 font-bold text-base">0.0</span>s
+            </div>
+        </div>
+
+        <!-- 關卡3資訊面板：反應速度戰況 -->
+        <div id="panel-lvl3" class="hidden justify-between items-center bg-slate-950/80 p-3 rounded-xl border border-slate-800 z-20">
+            <div class="text-xs text-slate-300">
+                回合: <span id="p3-round" class="text-cyan-400 font-bold text-sm">1 / 3</span>
+            </div>
+            <div class="text-xs text-cyan-400">
+                玩家均速: <span id="p3-player-avg" class="font-bold text-sm">---</span>
+            </div>
+            <div class="text-xs text-rose-400">
+                AI 均速: <span id="p3-ai-avg" class="font-bold text-sm">---</span>
+            </div>
+        </div>
+
+        <!-- 遊戲主要畫布區域 Canvas Area -->
+        <div class="relative w-full h-72 sm:h-80 bg-slate-950 rounded-xl overflow-hidden border-2 border-slate-800 flex items-center justify-center z-20" id="canvas-container">
+            <canvas id="gameCanvas" class="w-full h-full block cursor-pointer"></canvas>
+
+            <!-- 浮動Overlay遮罩：開始/結算 -->
+            <div id="overlay-modal" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30 transition-all">
+                <div id="modal-icon" class="text-5xl mb-2 animate-bounce">🎯</div>
+                <h2 id="modal-title" class="text-2xl sm:text-3xl font-black text-cyan-400 mb-2">10秒射擊對決</h2>
+                <p id="modal-desc" class="text-slate-300 text-xs sm:text-sm max-w-md mb-6 leading-relaxed">
+                    在 10 秒內快速點擊出現的移動標靶！<br>電腦 AI 會以固定頻率（每5秒3次）自動得分。
+                </p>
+                
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button id="modal-action-btn" class="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-base rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.4)] transform active:scale-95 transition-all">
+                        🚀 開始挑戰
+                    </button>
+                    <button id="modal-next-btn" class="hidden px-8 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-slate-950 font-black text-base rounded-xl shadow-[0_0_20px_rgba(52,211,153,0.4)] transform active:scale-95 transition-all">
+                        ➡️ 進入下一關
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作說明 footer -->
+        <div class="text-center text-xs text-slate-500 z-20 flex justify-between items-center px-1" id="footer-hint">
+            <span>💡 操作：滑鼠點擊 / 觸控螢幕 / 空白鍵 Jump</span>
+            <span class="text-cyan-500/80">Cyberpunk Game Engine</span>
+        </div>
+    </div>
+
+    <!-- JavaScript 遊戲邏輯與渲染引擎 -->
+    <script>
+        // ==================== 全局狀態與變數 ====================
+        let currentLevel = 1;
+        let isGameRunning = false;
+        let unlockedLevel = 1;
+
+        // Canvas 初始化
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let cw = 0, ch = 0;
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            cw = rect.width;
+            ch = rect.height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Web Audio API 音效生成器
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioCtx();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'shoot') { // 射擊音效
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.08);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'hit') { // 擊中
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'jump') { // 跳躍
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.exponentialRampToValueAtTime(660, now + 0.12);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+                osc.start(now);
+                osc.stop(now + 0.12);
+            } else if (type === 'coin') { // 金幣
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, now); // B5
+                osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            } else if (type === 'hurt') { // 受傷
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(40, now + 0.2);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            } else if (type === 'beep') { // 倒數嗶聲
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, now);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'alarm') { // 反應變色警報
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(880, now);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+        }
+
+        // DOM 元素引用
+        const modal = document.getElementById('overlay-modal');
+        const modalIcon = document.getElementById('modal-icon');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+        const modalActionBtn = document.getElementById('modal-action-btn');
+        const modalNextBtn = document.getElementById('modal-next-btn');
+
+        const btnLvl1 = document.getElementById('btn-lvl-1');
+        const btnLvl2 = document.getElementById('btn-lvl-2');
+        const btnLvl3 = document.getElementById('btn-lvl-3');
+
+        // ==================== 關卡 1：10秒射擊對決 ====================
+        let p1_playerScore = 0;
+        let p1_aiScore = 0;
+        let p1_timeLeft = 10.0;
+        let p1_timerInt = null;
+        let p1_aiInt = null;
+        let p1_target = { x: 0, y: 0, r: 26, vx: 0, vy: 0 };
+        let p1_particles = [];
+
+        function initLevel1() {
+            p1_playerScore = 0;
+            p1_aiScore = 0;
+            p1_timeLeft = 10.0;
+            p1_particles = [];
+            updateLvl1UI();
+            resetP1Target();
+        }
+
+        function resetP1Target() {
+            const pad = 45;
+            p1_target.r = Math.random() * 6 + 24;
+            p1_target.x = pad + Math.random() * (cw - pad * 2);
+            p1_target.y = pad + Math.random() * (ch - pad * 2);
+            p1_target.vx = (Math.random() - 0.5) * 4;
+            p1_target.vy = (Math.random() - 0.5) * 4;
+        }
+
+        function startLevel1() {
+            initLevel1();
+            isGameRunning = true;
+            modal.classList.add('hidden');
+
+            let lastNow = Date.now();
+            p1_timerInt = setInterval(() => {
+                const now = Date.now();
+                const delta = (now - lastNow) / 1000;
+                lastNow = now;
+                p1_timeLeft -= delta;
+                if (p1_timeLeft <= 0) {
+                    p1_timeLeft = 0;
+                    endLevel1();
+                }
+                updateLvl1UI();
+            }, 50);
+
+            // AI 每 5 秒射擊 3 次 (即平均 1666.67 ms 射擊一次)
+            p1_aiInt = setInterval(() => {
+                if (isGameRunning) {
+                    p1_aiScore += 1;
+                    updateLvl1UI();
+                }
+            }, 5000 / 3);
+
+            requestAnimationFrame(loopLevel1);
+        }
+
+        function updateLvl1UI() {
+            document.getElementById('p1-score').textContent = p1_playerScore;
+            document.getElementById('ai1-score').textContent = p1_aiScore;
+            document.getElementById('p1-timer').textContent = p1_timeLeft.toFixed(1);
+
+            const maxVal = Math.max(p1_playerScore, p1_aiScore, 10);
+            document.getElementById('p1-bar').style.width = (p1_playerScore / maxVal * 100) + '%';
+            document.getElementById('ai1-bar').style.width = (p1_aiScore / maxVal * 100) + '%';
+
+            const diff = p1_playerScore - p1_aiScore;
+            const statusEl = document.getElementById('p1-status');
+            if (diff > 0) {
+                statusEl.textContent = `🔥 玩家領先 ${diff} 分`;
+                statusEl.className = 'text-center text-xs text-cyan-400 font-bold';
+            } else if (diff < 0) {
+                statusEl.textContent = `⚠️ 玩家落後 ${Math.abs(diff)} 分`;
+                statusEl.className = 'text-center text-xs text-rose-400 font-bold';
+            } else {
+                statusEl.textContent = `⚔️ 雙方平手`;
+                statusEl.className = 'text-center text-xs text-slate-400 font-bold';
+            }
+        }
+
+        function endLevel1() {
+            isGameRunning = false;
+            clearInterval(p1_timerInt);
+            clearInterval(p1_aiInt);
+
+            const diff = p1_playerScore - p1_aiScore;
+            modalIcon.textContent = diff > 0 ? '🏆' : (diff === 0 ? '🤝' : '💀');
+            modalTitle.textContent = diff > 0 ? '10秒對決 獲勝！' : (diff === 0 ? '雙方平手！' : '10秒對決 挑戰失敗');
+            
+            modalDesc.innerHTML = `最終比分：玩家 <b class="text-cyan-400">${p1_playerScore}</b> 分 vs AI <b class="text-rose-400">${p1_aiScore}</b> 分<br>` +
+                (diff > 0 ? `太強了！你擊敗了電腦 AI！解鎖關卡二！` : `差距 ${Math.abs(diff)} 分，再試一次吧！`);
+
+            if (diff > 0) {
+                unlockLevel(2);
+                modalNextBtn.classList.remove('hidden');
+            } else {
+                modalNextBtn.classList.add('hidden');
+            }
+
+            modalActionBtn.textContent = '🔄 再試一次';
+            modal.classList.remove('hidden');
+        }
+
+        function loopLevel1() {
+            if (currentLevel !== 1 || !isGameRunning) return;
+
+            ctx.clearRect(0, 0, cw, ch);
+
+            // 繪製科技網格背景
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.08)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < cw; x += 30) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ch); ctx.stroke();
+            }
+            for (let y = 0; y < ch; y += 30) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cw, y); ctx.stroke();
+            }
+
+            // 更新標靶位置
+            p1_target.x += p1_target.vx;
+            p1_target.y += p1_target.vy;
+            if (p1_target.x - p1_target.r < 0 || p1_target.x + p1_target.r > cw) p1_target.vx *= -1;
+            if (p1_target.y - p1_target.r < 0 || p1_target.y + p1_target.r > ch) p1_target.vy *= -1;
+
+            // 畫標靶
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(p1_target.x, p1_target.y, p1_target.r, 0, Math.PI * 2);
+            ctx.fillStyle = '#f43f5e';
+            ctx.shadowColor = '#f43f5e';
+            ctx.shadowBlur = 12;
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(p1_target.x, p1_target.y, p1_target.r * 0.65, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(p1_target.x, p1_target.y, p1_target.r * 0.3, 0, Math.PI * 2);
+            ctx.fillStyle = '#06b6d4';
+            ctx.fill();
+            ctx.restore();
+
+            // 粒子動畫
+            for (let i = p1_particles.length - 1; i >= 0; i--) {
+                let p = p1_particles[i];
+                p.x += p.vx; p.y += p.vy; p.alpha -= 0.03;
+                if (p.alpha <= 0) { p1_particles.splice(i, 1); continue; }
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            requestAnimationFrame(loopLevel1);
+        }
+
+        // ==================== 關卡 2：2D 跑酷 (Endless Runner) ====================
+        let p2_player = { x: 60, y: 0, w: 30, h: 42, vy: 0, gravity: 0.65, jumpPower: -11, jumps: 0, maxJumps: 2, groundY: 0 };
+        let p2_obstacles = [];
+        let p2_coins = [];
+        let p2_particles = [];
+        let p2_score = 0;
+        let p2_time = 0;
+        let p2_hearts = 3;
+        let p2_invincible = 0;
+        let p2_spawnTimer = 0;
+        let p2_lastFrame = 0;
+
+        function initLevel2() {
+            p2_player.groundY = ch - 50;
+            p2_player.y = p2_player.groundY - p2_player.h;
+            p2_player.vy = 0;
+            p2_player.jumps = 0;
+            p2_obstacles = [];
+            p2_coins = [];
+            p2_particles = [];
+            p2_score = 0;
+            p2_time = 0;
+            p2_hearts = 3;
+            p2_invincible = 0;
+            p2_spawnTimer = 0;
+            updateLvl2HUD();
+        }
+
+        function updateLvl2HUD() {
+            document.getElementById('p2-score').textContent = p2_score;
+            document.getElementById('p2-timer').textContent = p2_time.toFixed(1);
+            let heartsStr = '';
+            for (let i = 0; i < 3; i++) {
+                heartsStr += i < p2_hearts ? '❤️ ' : '🖤 ';
+            }
+            document.getElementById('p2-hearts').textContent = heartsStr;
+        }
+
+        function startLevel2() {
+            initLevel2();
+            isGameRunning = true;
+            modal.classList.add('hidden');
+            p2_lastFrame = Date.now();
+            requestAnimationFrame(loopLevel2);
+        }
+
+        function playerJump() {
+            if (currentLevel !== 2 || !isGameRunning) return;
+            if (p2_player.jumps < p2_player.maxJumps) {
+                p2_player.vy = p2_player.jumpPower;
+                p2_player.jumps++;
+                playSound('jump');
+                // 跳躍噴氣粒子
+                for (let i = 0; i < 8; i++) {
+                    p2_particles.push({
+                        x: p2_player.x + 15, y: p2_player.y + p2_player.h,
+                        vx: (Math.random() - 0.5) * 4, vy: Math.random() * 3 + 2,
+                        r: Math.random() * 3 + 2, color: '#06b6d4', alpha: 1
+                    });
+                }
+            }
+        }
+
+        function endLevel2(win) {
+            isGameRunning = false;
+            modalIcon.textContent = win ? '🏃💨' : '💥';
+            modalTitle.textContent = win ? '2D跑酷 順利通關！' : '跑酷挑戰 失敗';
+            modalDesc.innerHTML = win ?
+                `成功生存並獲得 <b class="text-amber-400">${p2_score}</b> 分！<br>已解鎖終極關卡：極限反應比賽！` :
+                `生命值耗盡！得分：${p2_score} 分。調整節奏再試一次！`;
+
+            if (win) {
+                unlockLevel(3);
+                modalNextBtn.classList.remove('hidden');
+            } else {
+                modalNextBtn.classList.add('hidden');
+            }
+
+            modalActionBtn.textContent = '🔄 重新開始';
+            modal.classList.remove('hidden');
+        }
+
+        function loopLevel2() {
+            if (currentLevel !== 2 || !isGameRunning) return;
+
+            const now = Date.now();
+            const dt = (now - p2_lastFrame) / 1000;
+            p2_lastFrame = now;
+
+            p2_time += dt;
+            if (p2_invincible > 0) p2_invincible -= dt;
+
+            // 勝利條件：200分 或 生存20秒
+            if (p2_score >= 200 || p2_time >= 20.0) {
+                endLevel2(true);
+                return;
+            }
+
+            // 重力與玩家移動
+            p2_player.vy += p2_player.gravity;
+            p2_player.y += p2_player.vy;
+            if (p2_player.y >= p2_player.groundY - p2_player.h) {
+                p2_player.y = p2_player.groundY - p2_player.h;
+                p2_player.vy = 0;
+                p2_player.jumps = 0;
+            }
+
+            // 生成障礙物與金幣
+            p2_spawnTimer += dt;
+            const speed = 5.5 + Math.min(p2_time * 0.15, 4); // 隨時間加速
+
+            if (p2_spawnTimer > Math.max(0.9, 2.0 - p2_time * 0.04)) {
+                p2_spawnTimer = 0;
+                const rand = Math.random();
+                if (rand < 0.45) { // 地面尖刺
+                    p2_obstacles.push({ x: cw + 20, y: p2_player.groundY - 25, w: 25, h: 25, type: 'spike' });
+                } else if (rand < 0.75) { // 高箱
+                    p2_obstacles.push({ x: cw + 20, y: p2_player.groundY - 40, w: 30, h: 40, type: 'box' });
+                } else { // 空中無人機
+                    p2_obstacles.push({ x: cw + 20, y: p2_player.groundY - 75, w: 32, h: 22, type: 'drone' });
+                }
+
+                // 金幣生成
+                if (Math.random() < 0.6) {
+                    p2_coins.push({ x: cw + 80, y: p2_player.groundY - (Math.random() < 0.5 ? 30 : 75), r: 9 });
+                }
+            }
+
+            ctx.clearRect(0, 0, cw, ch);
+
+            // 繪製捲軸背景與地面
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, cw, ch);
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, p2_player.groundY, cw, ch - p2_player.groundY);
+            ctx.strokeStyle = '#06b6d4';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, p2_player.groundY);
+            ctx.lineTo(cw, p2_player.groundY);
+            ctx.stroke();
+
+            // 更新與繪製金幣
+            for (let i = p2_coins.length - 1; i >= 0; i--) {
+                let c = p2_coins[i];
+                c.x -= speed;
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+                ctx.fillStyle = '#f59e0b';
+                ctx.shadowColor = '#f59e0b';
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.restore();
+
+                // 吃到金幣檢測
+                const dist = Math.hypot((p2_player.x + 15) - c.x, (p2_player.y + 21) - c.y);
+                if (dist < c.r + 18) {
+                    p2_score += 15;
+                    playSound('coin');
+                    p2_coins.splice(i, 1);
+                    updateLvl2HUD();
+                } else if (c.x < -20) {
+                    p2_coins.splice(i, 1);
+                }
+            }
+
+            // 更新與繪製障礙物
+            for (let i = p2_obstacles.length - 1; i >= 0; i--) {
+                let obs = p2_obstacles[i];
+                obs.x -= speed;
+
+                if (obs.type === 'spike') {
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.beginPath();
+                    ctx.moveTo(obs.x, obs.y + obs.h);
+                    ctx.lineTo(obs.x + obs.w / 2, obs.y);
+                    ctx.lineTo(obs.x + obs.w, obs.y + obs.h);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (obs.type === 'box') {
+                    ctx.fillStyle = '#78350f';
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.strokeRect(obs.x, obs.y, obs.w, obs.h);
+                } else if (obs.type === 'drone') {
+                    ctx.fillStyle = '#a855f7';
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    ctx.fillStyle = '#e9d5ff';
+                    ctx.fillRect(obs.x + 4, obs.y + 4, obs.w - 8, obs.h - 8);
+                }
+
+                // 碰撞檢測
+                if (p2_invincible <= 0 &&
+                    p2_player.x < obs.x + obs.w &&
+                    p2_player.x + p2_player.w > obs.x &&
+                    p2_player.y < obs.y + obs.h &&
+                    p2_player.y + p2_player.h > obs.y) {
+                    
+                    p2_hearts--;
+                    p2_invincible = 1.2; // 1.2秒無敵
+                    playSound('hurt');
+                    updateLvl2HUD();
+
+                    if (p2_hearts <= 0) {
+                        endLevel2(false);
+                        return;
+                    }
+                }
+
+                if (obs.x < -40) p2_obstacles.splice(i, 1);
+            }
+
+            // 繪製玩家 Hero (閃爍代表無敵狀態)
+            if (p2_invincible <= 0 || Math.floor(Date.now() / 100) % 2 === 0) {
+                ctx.save();
+                ctx.fillStyle = '#06b6d4';
+                ctx.shadowColor = '#06b6d4';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(p2_player.x, p2_player.y, p2_player.w, p2_player.h);
+                // 眼睛
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(p2_player.x + 18, p2_player.y + 8, 8, 8);
+                ctx.restore();
+            }
+
+            // 粒子更新
+            for (let i = p2_particles.length - 1; i >= 0; i--) {
+                let p = p2_particles[i];
+                p.x += p.vx; p.y += p.vy; p.alpha -= 0.04;
+                if (p.alpha <= 0) { p2_particles.splice(i, 1); continue; }
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            updateLvl2HUD();
+            requestAnimationFrame(loopLevel2);
+        }
+
+        // ==================== 關卡 3：極限反應比賽 ====================
+        let p3_round = 1;
+        const p3_totalRounds = 3;
+        let p3_state = 'idle'; // 'idle', 'waiting', 'ready', 'result'
+        let p3_startTime = 0;
+        let p3_timerTimeout = null;
+
+        let p3_playerTimes = [];
+        let p3_aiTimes = [];
+
+        function initLevel3() {
+            p3_round = 1;
+            p3_state = 'idle';
+            p3_playerTimes = [];
+            p3_aiTimes = [];
+            updateLvl3HUD();
+        }
+
+        function updateLvl3HUD() {
+            document.getElementById('p3-round').textContent = `${p3_round} / ${p3_totalRounds}`;
+            const pAvg = p3_playerTimes.length ? (p3_playerTimes.reduce((a,b)=>a+b,0)/p3_playerTimes.length).toFixed(0) + ' ms' : '---';
+            const aiAvg = p3_aiTimes.length ? (p3_aiTimes.reduce((a,b)=>a+b,0)/p3_aiTimes.length).toFixed(0) + ' ms' : '---';
+            document.getElementById('p3-player-avg').textContent = pAvg;
+            document.getElementById('p3-ai-avg').textContent = aiAvg;
+        }
+
+        function startLevel3Round() {
+            p3_state = 'waiting';
+            modal.classList.add('hidden');
+            renderLevel3Canvas();
+
+            // 隨機 2~4.5 秒後變色指示「按下！」
+            const waitMs = Math.random() * 2500 + 2000;
+            p3_timerTimeout = setTimeout(() => {
+                if (p3_state === 'waiting') {
+                    p3_state = 'ready';
+                    p3_startTime = Date.now();
+                    playSound('alarm');
+                    renderLevel3Canvas();
+                }
+            }, waitMs);
+        }
+
+        function handleLvl3Action() {
+            if (currentLevel !== 3) return;
+
+            if (p3_state === 'waiting') { // 搶跑 False Start!
+                clearTimeout(p3_timerTimeout);
+                p3_state = 'idle';
+                playSound('hurt');
+                alert('⚠️ 搶跑違規 (False Start)！請等待變綠燈並出現「按下！」警報時再發動！');
+                startLevel3Round();
+            } else if (p3_state === 'ready') { // 成功點擊
+                const pTime = Date.now() - p3_startTime;
+                // AI 隨機模擬反應時間 (230ms ~ 330ms)
+                const aiTime = Math.floor(230 + Math.random() * 100);
+
+                p3_playerTimes.push(pTime);
+                p3_aiTimes.push(aiTime);
+                playSound('hit');
+
+                p3_state = 'result';
+                renderLevel3Canvas();
+
+                setTimeout(() => {
+                    if (p3_round < p3_totalRounds) {
+                        p3_round++;
+                        updateLvl3HUD();
+                        startLevel3Round();
+                    } else {
+                        endLevel3();
+                    }
+                }, 1800);
+            }
+        }
+
+        function endLevel3() {
+            p3_state = 'idle';
+            const pAvg = Math.round(p3_playerTimes.reduce((a,b)=>a+b,0)/p3_totalRounds);
+            const aiAvg = Math.round(p3_aiTimes.reduce((a,b)=>a+b,0)/p3_totalRounds);
+            const diff = aiAvg - pAvg; // 毫秒越小越快，勝者 diff > 0
+
+            modalIcon.textContent = diff > 0 ? '⚡' : '🐢';
+            modalTitle.textContent = diff > 0 ? '極限反應王！獲勝！' : '反應對決 落敗！';
+            
+            modalDesc.innerHTML = `<b>3局平均反應時間結算：</b><br>` +
+                `玩家：<b class="text-cyan-400">${pAvg} ms</b> vs AI：<b class="text-rose-400">${aiAvg} ms</b><br>` +
+                (diff > 0 ? `你比電腦 AI 快了 <b class="text-amber-400">${diff} ms</b>！反應神速！` : `電腦比你快了 ${Math.abs(diff)} ms，繼續挑戰神經極限！`);
+
+            modalNextBtn.classList.add('hidden');
+            modalActionBtn.textContent = '🔄 重玩遊戲全關卡';
+            modal.classList.remove('hidden');
+        }
+
+        function renderLevel3Canvas() {
+            ctx.clearRect(0, 0, cw, ch);
+
+            if (p3_state === 'waiting') {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, cw, ch);
+
+                ctx.fillStyle = '#f59e0b';
+                ctx.font = '900 28px Orbitron, Noto Sans TC';
+                ctx.textAlign = 'center';
+                ctx.fillText('READY...', cw / 2, ch / 2 - 10);
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '14px Orbitron';
+                ctx.fillText('等待螢幕變綠色...', cw / 2, ch / 2 + 25);
+
+            } else if (p3_state === 'ready') {
+                ctx.fillStyle = '#15803d';
+                ctx.fillRect(0, 0, cw, ch);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '900 42px Orbitron, Noto Sans TC';
+                ctx.textAlign = 'center';
+                ctx.fillText('⚡ 按下！PRESS! ⚡', cw / 2, ch / 2 + 10);
+
+            } else if (p3_state === 'result') {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, cw, ch);
+
+                const lastP = p3_playerTimes[p3_playerTimes.length - 1];
+                const lastAI = p3_aiTimes[p3_aiTimes.length - 1];
+
+                ctx.fillStyle = '#06b6d4';
+                ctx.font = '700 22px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.fillText(`本局反應：${lastP} ms`, cw / 2, ch / 2 - 15);
+
+                ctx.fillStyle = '#f43f5e';
+                ctx.font = '700 18px Orbitron';
+                ctx.fillText(`AI 反應：${lastAI} ms`, cw / 2, ch / 2 + 20);
+            } else {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, cw, ch);
+            }
+        }
+
+        // ==================== 關卡管理與導覽 ====================
+        function unlockLevel(lvl) {
+            if (lvl > unlockedLevel) {
+                unlockedLevel = lvl;
+                if (lvl >= 2) {
+                    btnLvl2.disabled = false;
+                    btnLvl2.className = 'px-2.5 py-1 rounded border border-cyan-500 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40 font-bold transition';
+                }
+                if (lvl >= 3) {
+                    btnLvl3.disabled = false;
+                    btnLvl3.className = 'px-2.5 py-1 rounded border border-cyan-500 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40 font-bold transition';
+                }
+            }
+        }
+
+        function switchLevel(lvl) {
+            if (lvl > unlockedLevel) return;
+            initAudio();
+            currentLevel = lvl;
+            isGameRunning = false;
+            clearInterval(p1_timerInt);
+            clearInterval(p1_aiInt);
+
+            document.getElementById('level-badge').textContent = `LEVEL ${lvl} / 3`;
+            document.getElementById('panel-lvl1').classList.toggle('hidden', lvl !== 1);
+            document.getElementById('panel-lvl2').classList.toggle('hidden', lvl !== 2);
+            document.getElementById('panel-lvl2').classList.toggle('flex', lvl === 2);
+            document.getElementById('panel-lvl3').classList.toggle('hidden', lvl !== 3);
+            document.getElementById('panel-lvl3').classList.toggle('flex', lvl === 3);
+
+            modalNextBtn.classList.add('hidden');
+
+            if (lvl === 1) {
+                document.getElementById('game-title').textContent = '🎯 10秒射擊對決';
+                modalIcon.textContent = '🎯';
+                modalTitle.textContent = '10秒射擊對決';
+                modalDesc.innerHTML = '在 10 秒內快速點擊出現的移動標靶！<br>電腦 AI 會以固定頻率（每5秒3次）自動得分。';
+                modalActionBtn.textContent = '🚀 開始關卡一';
+                initLevel1();
+            } else if (lvl === 2) {
+                document.getElementById('game-title').textContent = '🏃 2D 跑酷挑戰';
+                modalIcon.textContent = '🏃💨';
+                modalTitle.textContent = '2D 跑酷挑戰';
+                modalDesc.innerHTML = '操作：空白鍵/點擊進行跳躍與<b>二段跳</b>。<br>躲避尖刺與無人機，收集金幣達 200 分或存活 20 秒通關！';
+                modalActionBtn.textContent = '🚀 開始關卡二';
+                initLevel2();
+            } else if (lvl === 3) {
+                document.getElementById('game-title').textContent = '⚡ 極限反應比賽';
+                modalIcon.textContent = '⚡';
+                modalTitle.textContent = '極限反應比賽';
+                modalDesc.innerHTML = '當畫面變綠並出現「按下！」時，以最快速度點擊！<br>進行 3 局對決，比拼誰的毫秒反應最快！（搶跑算違規）';
+                modalActionBtn.textContent = '🚀 開始關卡三';
+                initLevel3();
+                renderLevel3Canvas();
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        // 事件綁定
+        modalActionBtn.addEventListener('click', () => {
+            initAudio();
+            if (currentLevel === 1) startLevel1();
+            else if (currentLevel === 2) startLevel2();
+            else if (currentLevel === 3) { initLevel3(); startLevel3Round(); }
+        });
+
+        modalNextBtn.addEventListener('click', () => {
+            if (currentLevel < 3) switchLevel(currentLevel + 1);
+        });
+
+        // 畫布點擊/觸控操作
+        canvas.addEventListener('pointerdown', (e) => {
+            initAudio();
+            if (currentLevel === 1 && isGameRunning) {
+                const rect = canvas.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
+                const dist = Math.hypot(clickX - p1_target.x, clickY - p1_target.y);
+
+                if (dist <= p1_target.r) {
+                    p1_playerScore++;
+                    playSound('hit');
+                    // 生成擊中爆炸粒子
+                    for (let i = 0; i < 12; i++) {
+                        p1_particles.push({
+                            x: p1_target.x, y: p1_target.y,
+                            vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8,
+                            r: Math.random() * 4 + 2, color: '#06b6d4', alpha: 1
+                        });
+                    }
+                    resetP1Target();
+                    updateLvl1UI();
+                } else {
+                    playSound('shoot');
+                }
+            } else if (currentLevel === 2 && isGameRunning) {
+                playerJump();
+            } else if (currentLevel === 3) {
+                handleLvl3Action();
+            }
+        });
+
+        // 鍵盤空白鍵支持
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                initAudio();
+                if (currentLevel === 2 && isGameRunning) {
+                    playerJump();
+                } else if (currentLevel === 3) {
+                    handleLvl3Action();
+                }
+            }
+        });
+
+        // 初始化第一次渲染
+        switchLevel(1);
+    </script>
+</body>
+</html>
