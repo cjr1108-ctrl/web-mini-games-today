@@ -1,409 +1,1041 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>30秒射擊對決</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: manipulation;
-        }
-        @keyframes pulse-glow {
-            0%, 100% { transform: scale(1); opacity: 0.8; }
-            50% { transform: scale(1.08); opacity: 1; }
-        }
-        .target-anim {
-            animation: pulse-glow 1.5s infinite ease-in-out;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>四關卡冒險挑戰遊戲</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.85);
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --text: #f8fafc;
+      --gold: #fbbf24;
+      --red: #ef4444;
+      --blue-heart: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background: var(--bg-color);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #game-container {
+      width: 800px;
+      height: 600px;
+      background: #000;
+      border: 4px solid #334155;
+      border-radius: 12px;
+      position: relative;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 頂部關卡與狀態資訊欄 */
+    .header-bar {
+      height: 50px;
+      background: #1e293b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+      border-bottom: 2px solid #334155;
+      z-index: 10;
+    }
+
+    .level-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--accent);
+    }
+
+    .status-group {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .stat-box {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    /* 畫布區域 */
+    canvas {
+      width: 800px;
+      height: 550px;
+      display: block;
+      background: #050505;
+      cursor: crosshair;
+    }
+
+    /* 彈窗與浮層 */
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.92);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+      text-align: center;
+      padding: 30px;
+    }
+
+    .overlay h1 {
+      font-size: 2.5rem;
+      color: var(--accent);
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    }
+
+    .overlay p {
+      font-size: 1.1rem;
+      margin-bottom: 20px;
+      color: #cbd5e1;
+      max-width: 600px;
+      line-height: 1.6;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #0f172a;
+      border: none;
+      padding: 12px 32px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 6px -1px rgba(56, 189, 248, 0.4);
+    }
+
+    .btn:hover {
+      background: var(--accent-hover);
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 8px -1px rgba(56, 189, 248, 0.6);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* 關卡 1 的比分進度條 */
+    .progress-wrapper {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 15px;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 16px;
+      background: #334155;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-fill-player {
+      height: 100%;
+      background: #38bdf8;
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    .progress-fill-ai {
+      height: 100%;
+      background: #ef4444;
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    /* 關卡 3 反應測試浮層特化 */
+    #reaction-target {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    /* 提示文字 */
+    .controls-hint {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.9rem;
+      color: #94a3b8;
+      pointer-events: none;
+    }
+  </style>
 </head>
-<body class="bg-slate-900 text-white font-sans min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden">
+<body>
 
-    <!-- 主容器 -->
-    <div class="w-full max-w-xl bg-slate-800 rounded-2xl shadow-2xl p-6 border border-slate-700 flex flex-col gap-5 relative">
-        
-        <!-- 標題與倒數計時 -->
-        <div class="flex justify-between items-center border-b border-slate-700 pb-4">
-            <div>
-                <h1 class="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                    🎯 30秒射擊對決
-                </h1>
-                <p class="text-xs text-slate-400">對手 AI：每 5 秒射擊 3 次</p>
-            </div>
-            <div class="text-right">
-                <div class="text-xs text-slate-400">剩餘時間</div>
-                <div id="timer" class="text-3xl font-extrabold text-amber-400">30.0s</div>
-            </div>
-        </div>
-
-        <!-- 比分與進度條比較 -->
-        <div class="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/50">
-            <!-- 玩家進度條 -->
-            <div>
-                <div class="flex justify-between text-sm mb-1">
-                    <span class="font-semibold text-cyan-400">🧑 玩家得分: <span id="player-score">0</span></span>
-                    <span id="player-percent" class="text-xs text-slate-400">0%</span>
-                </div>
-                <div class="w-full bg-slate-700 rounded-full h-3.5 overflow-hidden">
-                    <div id="player-bar" class="bg-gradient-to-r from-cyan-500 to-blue-500 h-full w-0 transition-all duration-100 rounded-full"></div>
-                </div>
-            </div>
-
-            <!-- AI 進度條 -->
-            <div>
-                <div class="flex justify-between text-sm mb-1">
-                    <span class="font-semibold text-rose-400">🤖 AI 對手得分: <span id="ai-score">0</span></span>
-                    <span id="ai-percent" class="text-xs text-slate-400">0%</span>
-                </div>
-                <div class="w-full bg-slate-700 rounded-full h-3.5 overflow-hidden">
-                    <div id="ai-bar" class="bg-gradient-to-r from-rose-500 to-red-600 h-full w-0 transition-all duration-100 rounded-full"></div>
-                </div>
-            </div>
-
-            <!-- 實時差距 -->
-            <div class="text-center text-xs font-bold pt-1 text-slate-300" id="diff-status">
-                準備開始...
-            </div>
-        </div>
-
-        <!-- 射擊靶場 Canvas Area -->
-        <div class="relative w-full h-72 bg-slate-950 rounded-xl overflow-hidden border-2 border-slate-700 cursor-crosshair flex items-center justify-center" id="game-area">
-            
-            <canvas id="canvas" class="absolute inset-0 w-full h-full"></canvas>
-
-            <!-- 開始/等待提示遮罩 -->
-            <div id="start-overlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-10">
-                <h2 class="text-2xl font-bold mb-2">準備好精準射擊了嗎？</h2>
-                <p class="text-slate-400 text-sm mb-6">點擊出現在畫面中的靶心獲得分數！<br>AI 每 5 秒會精準射擊 3 次。</p>
-                <button id="start-btn" class="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold text-lg rounded-xl shadow-lg transform active:scale-95 transition-all">
-                    🎯 開始對決
-                </button>
-            </div>
-
-            <!-- 結算畫面 -->
-            <div id="result-modal" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
-                <div id="result-icon" class="text-5xl mb-2">🏆</div>
-                <h2 id="result-title" class="text-3xl font-black text-amber-400 mb-2">挑戰結束！</h2>
-                <p id="result-detail" class="text-slate-300 text-base mb-6">玩家 0 分 vs AI 0 分</p>
-                <div id="result-diff" class="text-xl font-bold text-cyan-300 bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 mb-6">
-                    你贏了 0 分！
-                </div>
-                <button id="restart-btn" class="px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-lg rounded-xl shadow-lg transform active:scale-95 transition-all">
-                    🔄 再玩一次
-                </button>
-            </div>
-        </div>
-
-        <div class="text-center text-xs text-slate-500">
-            提示：迅速擊中移動標靶獲得高分，測試你的反應速度！
-        </div>
+  <div id="game-container">
+    <!-- 頂部狀態列 -->
+    <div class="header-bar">
+      <div id="level-name" class="level-title">第一關：10秒射擊對決</div>
+      <div class="status-group">
+        <div class="stat-box" id="stat-1">時間: <span id="timer-val" style="color:var(--gold)">10</span>s</div>
+        <div class="stat-box" id="stat-2">得分: <span id="score-val" style="color:var(--accent)">0</span></div>
+      </div>
     </div>
 
-    <script>
-        // --- 遊戲邏輯與狀態 ---
-        const GAME_DURATION = 30.0; // 30秒
-        // AI 5秒3次 = 平均每 1.666 秒得1分 (5000ms / 3 ≈ 1666.67ms)
-        const AI_INTERVAL_MS = 5000 / 3; 
+    <!-- 主遊戲 Canvas -->
+    <canvas id="gameCanvas" width="800" height="550"></canvas>
 
-        let playerScore = 0;
-        let aiScore = 0;
-        let timeLeft = GAME_DURATION;
-        let isRunning = false;
-        
-        let timerInterval = null;
-        let aiInterval = null;
-        let lastTime = 0;
+    <!-- 關卡說明/結算浮層 -->
+    <div id="overlay" class="overlay">
+      <h1 id="overlay-title">四關卡綜合挑戰</h1>
+      <p id="overlay-desc">準備好挑戰 4 個不同類型的關卡了嗎？<br>包含射擊對決、2D跑酷、反應極限與 Undertale 生存戰！</p>
+      <button id="start-btn" class="btn">開始第一關</button>
+    </div>
 
-        // Canvas 繪圖設定
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        let gameAreaWidth = 0;
-        let gameAreaHeight = 0;
+    <div class="controls-hint" id="controls-hint">提示：使用滑鼠點擊目標</div>
+  </div>
 
-        // 標靶 state
-        let target = {
-            x: 0,
-            y: 0,
-            radius: 28,
-            vx: 0,
-            vy: 0
-        };
+  <script>
+    // ===== 音效合成器 (Web Audio API) =====
+    const AudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSound(type) {
+      if (AudioCtx.state === 'suspended') AudioCtx.resume();
+      const osc = AudioCtx.createOscillator();
+      const gain = AudioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(AudioCtx.destination);
 
-        // 特效 (粒子)
-        let particles = [];
+      const now = AudioCtx.currentTime;
 
-        // UI 元素引用
-        const playerScoreEl = document.getElementById('player-score');
-        const aiScoreEl = document.getElementById('ai-score');
-        const playerBar = document.getElementById('player-bar');
-        const aiBar = document.getElementById('ai-bar');
-        const playerPercentEl = document.getElementById('player-percent');
-        const aiPercentEl = document.getElementById('ai-percent');
-        const timerEl = document.getElementById('timer');
-        const diffStatusEl = document.getElementById('diff-status');
-        
-        const startOverlay = document.getElementById('start-overlay');
-        const resultModal = document.getElementById('result-modal');
-        const startBtn = document.getElementById('start-btn');
-        const restartBtn = document.getElementById('restart-btn');
+      if (type === 'shoot') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      } else if (type === 'hit') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.setValueAtTime(500, now + 0.05);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (type === 'jump') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(400, now + 0.15);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (type === 'hurt') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.linearRampToValueAtTime(40, now + 0.2);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      } else if (type === 'blue') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(200, now);
+        osc.frequency.exponentialRampToValueAtTime(600, now + 0.2);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      } else if (type === 'win') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.setValueAtTime(600, now + 0.1);
+        osc.frequency.setValueAtTime(800, now + 0.2);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      }
+    }
 
-        // 音效產生器 (Web Audio API)
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playShootSound(pitch = 1) {
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(440 * pitch, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(110 * pitch, audioCtx.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.1);
-        }
+    // ===== 遊戲主控變數 =====
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const levelTitleUI = document.getElementById('level-name');
+    const timerUI = document.getElementById('timer-val');
+    const scoreUI = document.getElementById('score-val');
+    const stat1Box = document.getElementById('stat-1');
+    const stat2Box = document.getElementById('stat-2');
+    const overlay = document.getElementById('overlay');
+    const overlayTitle = document.getElementById('overlay-title');
+    const overlayDesc = document.getElementById('overlay-desc');
+    const startBtn = document.getElementById('start-btn');
+    const controlsHint = document.getElementById('controls-hint');
 
-        // 調整 Canvas 尺寸
-        function resizeCanvas() {
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height;
-            gameAreaWidth = rect.width;
-            gameAreaHeight = rect.height;
-        }
+    let currentLevel = 1;
+    let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER, LEVEL_CLEAR
+    let gameTimer = null;
+    let animFrame = null;
+    let lastTime = 0;
 
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+    // 關卡通用資料
+    let timeLeft = 0;
+    let score = 0;
 
-        // 重新隨機移動/生成標靶
-        function resetTarget() {
-            const padding = 40;
-            target.radius = Math.floor(Math.random() * 8) + 24; // 24-32px
-            target.x = padding + Math.random() * (gameAreaWidth - padding * 2);
-            target.y = padding + Math.random() * (gameAreaHeight - padding * 2);
-            // 隨機移動速度
-            target.vx = (Math.random() - 0.5) * 3;
-            target.vy = (Math.random() - 0.5) * 3;
-        }
+    // ==========================================
+    // 第一關：10秒射擊對決 (對手5秒3次)
+    // ==========================================
+    let L1 = {
+      playerHits: 0,
+      aiHits: 0,
+      target: { x: 400, y: 275, r: 25, vx: 3, vy: 2 },
+      aiTimer: 0
+    };
 
-        // 生成擊中特效粒子
-        function createExplosion(x, y, color) {
-            for (let i = 0; i < 15; i++) {
-                particles.push({
-                    x: x,
-                    y: y,
-                    vx: (Math.random() - 0.5) * 8,
-                    vy: (Math.random() - 0.5) * 8,
-                    radius: Math.random() * 4 + 2,
-                    alpha: 1,
-                    color: color
-                });
-            }
-        }
+    function initLevel1() {
+      currentLevel = 1;
+      levelTitleUI.innerText = "第一關：10秒射擊對決";
+      controlsHint.innerText = "提示：用滑鼠點擊移動標靶！";
+      timeLeft = 10;
+      L1.playerHits = 0;
+      L1.aiHits = 0;
+      L1.target = { x: 400, y: 275, r: 30, vx: 4, vy: 3 };
+      L1.aiTimer = 0;
+      updateUIStats();
+    }
 
-        // 開始遊戲
-        function startGame() {
-            playerScore = 0;
-            aiScore = 0;
-            timeLeft = GAME_DURATION;
-            isRunning = true;
-            particles = [];
+    function updateLevel1(dt) {
+      // 標靶移動
+      L1.target.x += L1.target.vx;
+      L1.target.y += L1.target.vy;
 
-            updateUI();
-            startOverlay.classList.add('hidden');
-            resultModal.classList.add('hidden');
+      if (L1.target.x - L1.target.r < 0 || L1.target.x + L1.target.r > canvas.width) L1.target.vx *= -1;
+      if (L1.target.y - L1.target.r < 0 || L1.target.y + L1.target.r > canvas.height) L1.target.vy *= -1;
 
-            resizeCanvas();
-            resetTarget();
+      // AI 機制: 5秒3次 = 平均每 5/3 = 1.667 秒得分一次
+      L1.aiTimer += dt;
+      if (L1.aiTimer >= (5 / 3)) {
+        L1.aiHits++;
+        L1.aiTimer -= (5 / 3);
+      }
 
-            // 計時器 (每 100ms 更新一次)
-            lastTime = Date.now();
-            timerInterval = setInterval(() => {
-                const now = Date.now();
-                const delta = (now - lastTime) / 1000;
-                lastTime = now;
-                timeLeft -= delta;
+      updateUIStats();
+    }
 
-                if (timeLeft <= 0) {
-                    timeLeft = 0;
-                    endGame();
-                }
-                updateUI();
-            }, 50);
+    function drawLevel1() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // AI 射擊計時器：每 5 秒射擊 3 次 (平均約 1.67 秒觸發一次)
-            aiInterval = setInterval(() => {
-                if (isRunning) {
-                    aiScore += 1;
-                    updateUI();
-                }
-            }, AI_INTERVAL_MS);
+      // 繪製標靶
+      ctx.beginPath();
+      ctx.arc(L1.target.x, L1.target.y, L1.target.r, 0, Math.PI * 2);
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
 
-            requestAnimationFrame(gameLoop);
-        }
+      ctx.beginPath();
+      ctx.arc(L1.target.x, L1.target.y, L1.target.r * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
 
-        // 結束遊戲
-        function endGame() {
-            isRunning = false;
-            clearInterval(timerInterval);
-            clearInterval(aiInterval);
+      ctx.beginPath();
+      ctx.arc(L1.target.x, L1.target.y, L1.target.r * 0.25, 0, Math.PI * 2);
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
 
-            // 結算畫面資訊
-            const diff = playerScore - aiScore;
-            document.getElementById('result-detail').textContent = `玩家 ${playerScore} 分  vs  AI ${aiScore} 分`;
+      // 畫面上方顯示比分對比進度條
+      const barW = 300;
+      const barH = 15;
+      const startX = (canvas.width - barW) / 2;
+      
+      // 玩家
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '14px sans-serif';
+      ctx.fillText(`玩家得分: ${L1.playerHits}`, startX, 40);
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(startX, 45, barW, barH);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(startX, 45, Math.min(barW, L1.playerHits * 15), barH);
 
-            const resultDiffEl = document.getElementById('result-diff');
-            const resultIconEl = document.getElementById('result-icon');
-            const resultTitleEl = document.getElementById('result-title');
+      // AI 對手
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`AI對手得分: ${L1.aiHits}`, startX, 85);
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(startX, 90, barW, barH);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(startX, 90, Math.min(barW, L1.aiHits * 15), barH);
+    }
 
-            if (diff > 0) {
-                resultIconEl.textContent = '🏆';
-                resultTitleEl.textContent = '獲勝！實力超群！';
-                resultTitleEl.className = 'text-3xl font-black text-amber-400 mb-2';
-                resultDiffEl.textContent = `你贏了對手 ${diff} 分！`;
-                resultDiffEl.className = 'text-xl font-bold text-emerald-400 bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 mb-6';
-            } else if (diff < 0) {
-                resultIconEl.textContent = '🤖';
-                resultTitleEl.textContent = '挑戰失敗！';
-                resultTitleEl.className = 'text-3xl font-black text-rose-500 mb-2';
-                resultDiffEl.textContent = `你輸了 ${Math.abs(diff)} 分，再接再厲！`;
-                resultDiffEl.className = 'text-xl font-bold text-rose-400 bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 mb-6';
-            } else {
-                resultIconEl.textContent = '🤝';
-                resultTitleEl.textContent = '平手！';
-                resultTitleEl.className = 'text-3xl font-black text-blue-400 mb-2';
-                resultDiffEl.textContent = `與 AI 旗鼓相當 (平手)！`;
-                resultDiffEl.className = 'text-xl font-bold text-blue-300 bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 mb-6';
-            }
+    function checkL1Click(mx, my) {
+      const dx = mx - L1.target.x;
+      const dy = my - L1.target.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= L1.target.r) {
+        L1.playerHits++;
+        playSound('hit');
+        // 重置標靶位置與速度方向
+        L1.target.x = Math.random() * (canvas.width - 100) + 50;
+        L1.target.y = Math.random() * (canvas.height - 100) + 50;
+        L1.target.vx = (Math.random() > 0.5 ? 1 : -1) * (3 + Math.random() * 3);
+        L1.target.vy = (Math.random() > 0.5 ? 1 : -1) * (3 + Math.random() * 3);
+      } else {
+        playSound('shoot');
+      }
+    }
 
-            resultModal.classList.remove('hidden');
-        }
+    // ==========================================
+    // 第二關：2D 跑酷 (Parkour)
+    // ==========================================
+    let L2 = {
+      player: { x: 100, y: 380, w: 30, h: 40, vy: 0, jumping: false, doubleJump: false },
+      gravity: 0.8,
+      groundY: 420,
+      obstacles: [],
+      spawnTimer: 0,
+      speed: 6,
+      distance: 0,
+      targetDistance: 2000 // 通過目標距離
+    };
 
-        // 更新 UI 得分與進度條
-        function updateUI() {
-            playerScoreEl.textContent = playerScore;
-            aiScoreEl.textContent = aiScore;
-            timerEl.textContent = timeLeft.toFixed(1) + 's';
+    function initLevel2() {
+      currentLevel = 2;
+      levelTitleUI.innerText = "第二關：2D 橫向跑酷";
+      controlsHint.innerText = "提示：按 [空白鍵] 或 [點擊] 進行跳躍 / 二段跳";
+      L2.player = { x: 100, y: 380, w: 30, h: 40, vy: 0, jumping: false, doubleJump: false };
+      L2.obstacles = [];
+      L2.spawnTimer = 0;
+      L2.speed = 6;
+      L2.distance = 0;
+      timeLeft = 25; // 限制時間跑完目標
+      updateUIStats();
+    }
 
-            // 以最高分數 + 10 為條狀基準，或滿分設為動態比較
-            const maxScore = Math.max(playerScore, aiScore, 10);
-            const pPct = Math.min(100, Math.round((playerScore / maxScore) * 100));
-            const aPct = Math.min(100, Math.round((aiScore / maxScore) * 100));
+    function updateLevel2(dt) {
+      L2.distance += L2.speed;
 
-            playerBar.style.width = pPct + '%';
-            aiBar.style.width = aPct + '%';
+      // 重力與跳躍
+      L2.player.vy += L2.gravity;
+      L2.player.y += L2.player.vy;
 
-            playerPercentEl.textContent = pPct + '%';
-            aiPercentEl.textContent = aPct + '%';
+      if (L2.player.y + L2.player.h >= L2.groundY) {
+        L2.player.y = L2.groundY - L2.player.h;
+        L2.player.vy = 0;
+        L2.player.jumping = false;
+        L2.player.doubleJump = false;
+      }
 
-            const diff = playerScore - aiScore;
-            if (diff > 0) {
-                diffStatusEl.textContent = `目前領先 AI ${diff} 分 🔥`;
-                diffStatusEl.className = 'text-center text-xs font-bold pt-1 text-cyan-400';
-            } else if (diff < 0) {
-                diffStatusEl.textContent = `目前落後 AI ${Math.abs(diff)} 分 ⚠️`;
-                diffStatusEl.className = 'text-center text-xs font-bold pt-1 text-rose-400';
-            } else {
-                diffStatusEl.textContent = '雙方分數平手 ⚔️';
-                diffStatusEl.className = 'text-center text-xs font-bold pt-1 text-slate-300';
-            }
-        }
-
-        // 點擊/射擊檢測
-        canvas.addEventListener('pointerdown', (e) => {
-            if (!isRunning) return;
-
-            const rect = canvas.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const clickY = e.clientY - rect.top;
-
-            // 計算點擊點與標靶距離
-            const dist = Math.hypot(clickX - target.x, clickY - target.y);
-
-            if (dist <= target.radius) {
-                // 擊中標靶！
-                playerScore += 1;
-                playShootSound(1.5);
-                createExplosion(target.x, target.y, '#06b6d4'); // 藍綠色爆炸
-                resetTarget();
-                updateUI();
-            } else {
-                // 沒擊中發射極小空槍效果
-                playShootSound(0.7);
-                createExplosion(clickX, clickY, '#64748b');
-            }
+      // 產生障礙物
+      L2.spawnTimer += dt;
+      if (L2.spawnTimer > 1.2 + Math.random() * 0.8) {
+        L2.spawnTimer = 0;
+        const type = Math.random() > 0.5 ? 'box' : 'spike';
+        L2.obstacles.push({
+          x: canvas.width + 20,
+          y: type === 'box' ? L2.groundY - 35 : L2.groundY - 30,
+          w: type === 'box' ? 35 : 25,
+          h: type === 'box' ? 35 : 30,
+          type: type
         });
+      }
 
-        // 動畫循環 (繪製 Canvas)
-        function gameLoop() {
-            ctx.clearRect(0, 0, gameAreaWidth, gameAreaHeight);
+      // 更新障礙物
+      for (let i = L2.obstacles.length - 1; i >= 0; i--) {
+        let obs = L2.obstacles[i];
+        obs.x -= L2.speed;
 
-            if (isRunning) {
-                // 1. 更新並繪製標靶移動
-                target.x += target.vx;
-                target.y += target.vy;
-
-                // 邊界碰撞反彈
-                if (target.x - target.radius < 0 || target.x + target.radius > gameAreaWidth) target.vx *= -1;
-                if (target.y - target.radius < 0 || target.y + target.radius > gameAreaHeight) target.vy *= -1;
-
-                // 繪製標靶
-                // 外圈
-                ctx.beginPath();
-                ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#ef4444';
-                ctx.fill();
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-
-                // 中圈
-                ctx.beginPath();
-                ctx.arc(target.x, target.y, target.radius * 0.6, 0, Math.PI * 2);
-                ctx.fillStyle = '#ffffff';
-                ctx.fill();
-
-                // 靶心
-                ctx.beginPath();
-                ctx.arc(target.x, target.y, target.radius * 0.25, 0, Math.PI * 2);
-                ctx.fillStyle = '#06b6d4';
-                ctx.fill();
-
-                // 2. 更新並繪製爆炸粒子
-                for (let i = particles.length - 1; i >= 0; i--) {
-                    let p = particles[i];
-                    p.x += p.vx;
-                    p.y += p.vy;
-                    p.alpha -= 0.04;
-
-                    if (p.alpha <= 0) {
-                        particles.splice(i, 1);
-                        continue;
-                    }
-
-                    ctx.save();
-                    ctx.globalAlpha = p.alpha;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = p.color;
-                    ctx.fill();
-                    ctx.restore();
-                }
-
-                requestAnimationFrame(gameLoop);
-            }
+        // 碰撞檢測
+        if (
+          L2.player.x < obs.x + obs.w &&
+          L2.player.x + L2.player.w > obs.x &&
+          L2.player.y < obs.y + obs.h &&
+          L2.player.y + L2.player.h > obs.y
+        ) {
+          playSound('hurt');
+          // 踩到障礙物扣除距離/懲罰
+          L2.distance = Math.max(0, L2.distance - 200);
+          L2.obstacles.splice(i, 1);
+          continue;
         }
 
-        // 按鈕事件綁定
-        startBtn.addEventListener('click', startGame);
-        restartBtn.addEventListener('click', startGame);
-    </script>
+        if (obs.x + obs.w < 0) {
+          L2.obstacles.splice(i, 1);
+        }
+      }
+
+      // 檢查通關
+      if (L2.distance >= L2.targetDistance) {
+        levelClear();
+      }
+
+      updateUIStats();
+    }
+
+    function drawLevel2() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 背景天空與地板
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(0, L2.groundY, canvas.width, canvas.height - L2.groundY);
+
+      // 地板走動線條
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 2;
+      const lineOffset = (L2.distance * 2) % 40;
+      for (let x = -lineOffset; x < canvas.width; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, L2.groundY);
+        ctx.lineTo(x - 20, canvas.height);
+        ctx.stroke();
+      }
+
+      // 玩家角色
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(L2.player.x, L2.player.y, L2.player.w, L2.player.h);
+
+      // 障礙物
+      for (let obs of L2.obstacles) {
+        if (obs.type === 'box') {
+          ctx.fillStyle = '#fbbf24';
+          ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+        } else {
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.moveTo(obs.x, obs.y + obs.h);
+          ctx.lineTo(obs.x + obs.w / 2, obs.y);
+          ctx.lineTo(obs.x + obs.w, obs.y + obs.h);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      // 距離條
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '16px sans-serif';
+      ctx.fillText(`跑酷進度: ${Math.floor(L2.distance)} / ${L2.targetDistance}m`, 20, 30);
+    }
+
+    function triggerJump() {
+      if (!L2.player.jumping) {
+        L2.player.vy = -13;
+        L2.player.jumping = true;
+        playSound('jump');
+      } else if (!L2.player.doubleJump) {
+        L2.player.vy = -11;
+        L2.player.doubleJump = true;
+        playSound('jump');
+      }
+    }
+
+    // ==========================================
+    // 第三關：比賽反應 (Reaction Speed Test)
+    // ==========================================
+    let L3 = {
+      state: 'WAITING', // WAITING, READY, CLICK_NOW, RESULT
+      readyTimer: 0,
+      startTime: 0,
+      reactionTime: 0,
+      round: 1,
+      totalRounds: 3,
+      times: []
+    };
+
+    function initLevel3() {
+      currentLevel = 3;
+      levelTitleUI.innerText = "第三關：比賽反應力 (3回合)";
+      controlsHint.innerText = "提示：看到綠色時「立即」點擊畫面！";
+      L3.round = 1;
+      L3.times = [];
+      startL3Round();
+      updateUIStats();
+    }
+
+    function startL3Round() {
+      L3.state = 'WAITING';
+      L3.readyTimer = 1.5 + Math.random() * 2.5; // 隨機倒數 1.5 ~ 4 秒
+    }
+
+    function updateLevel3(dt) {
+      if (L3.state === 'WAITING') {
+        L3.readyTimer -= dt;
+        if (L3.readyTimer <= 0) {
+          L3.state = 'CLICK_NOW';
+          L3.startTime = performance.now();
+        }
+      }
+    }
+
+    function drawLevel3() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (L3.state === 'WAITING') {
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`第 ${L3.round} / ${L3.totalRounds} 回合`, canvas.width / 2, 230);
+        ctx.fillText("等待變色... (不要太早點擊！)", canvas.width / 2, 290);
+      } else if (L3.state === 'CLICK_NOW') {
+        ctx.fillStyle = '#22c55e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 48px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("點擊！CLICK NOW!", canvas.width / 2, 280);
+      } else if (L3.state === 'TOO_EARLY') {
+        ctx.fillStyle = '#f97316';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("太早點了！無效！", canvas.width / 2, 260);
+        ctx.font = '20px sans-serif';
+        ctx.fillText("點擊畫面重試本回合", canvas.width / 2, 310);
+      } else if (L3.state === 'RESULT') {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`本回合反應時間: ${Math.floor(L3.reactionTime)} ms`, canvas.width / 2, 260);
+        ctx.font = '20px sans-serif';
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText("點擊畫面繼續...", canvas.width / 2, 320);
+      }
+      ctx.textAlign = 'left';
+    }
+
+    function handleL3Click() {
+      if (L3.state === 'WAITING') {
+        L3.state = 'TOO_EARLY';
+        playSound('hurt');
+      } else if (L3.state === 'TOO_EARLY') {
+        startL3Round();
+      } else if (L3.state === 'CLICK_NOW') {
+        L3.reactionTime = performance.now() - L3.startTime;
+        L3.times.push(L3.reactionTime);
+        playSound('hit');
+        L3.state = 'RESULT';
+      } else if (L3.state === 'RESULT') {
+        if (L3.round < L3.totalRounds) {
+          L3.round++;
+          startL3Round();
+        } else {
+          // 計算平均
+          const avg = L3.times.reduce((a, b) => a + b, 0) / L3.times.length;
+          if (avg <= 380) { // 反應小於 380ms 通過
+            levelClear(`平均反應時間：${Math.floor(avg)} ms！通過測試！`);
+          } else {
+            gameOver(`平均反應時間：${Math.floor(avg)} ms (需要 < 380ms)`);
+          }
+        }
+      }
+    }
+
+    // ==========================================
+    // 第四關：Undertale 彈幕生存戰 (60秒)
+    // ==========================================
+    let L4 = {
+      box: { x: 250, y: 120, w: 300, h: 300 }, // 戰鬥框
+      heart: { x: 400, y: 270, r: 8, vx: 0, vy: 0, speed: 4, mode: 'RED', hp: 100 }, // RED 或 BLUE
+      keys: {},
+      bullets: [],
+      spawnTimer: 0,
+      modeTimer: 0, // 切換藍心倒數
+      blueGravity: 0.25,
+      blueVy: 0,
+      isOnGround: false,
+      invincibleTimer: 0
+    };
+
+    function initLevel4() {
+      currentLevel = 4;
+      levelTitleUI.innerText = "第四關：Undertale 彈幕生存";
+      controlsHint.innerText = "提示：方向鍵/WASD移動 | 藍心模式按 [上/空白鍵] 跳躍";
+      timeLeft = 60;
+      L4.heart = { x: 400, y: 270, r: 8, vx: 0, vy: 0, speed: 4, mode: 'RED', hp: 100 };
+      L4.bullets = [];
+      L4.spawnTimer = 0;
+      L4.modeTimer = 0;
+      L4.blueVy = 0;
+      L4.invincibleTimer = 0;
+      updateUIStats();
+    }
+
+    function updateLevel4(dt) {
+      // 模式切換：每 10 秒切換一次 紅心 / 藍心
+      L4.modeTimer += dt;
+      if (L4.modeTimer >= 8) {
+        L4.modeTimer = 0;
+        L4.heart.mode = L4.heart.mode === 'RED' ? 'BLUE' : 'RED';
+        if (L4.heart.mode === 'BLUE') {
+          playSound('blue');
+        }
+      }
+
+      if (L4.invincibleTimer > 0) L4.invincibleTimer -= dt;
+
+      // 移動心形
+      let speed = L4.heart.speed;
+      let dx = 0, dy = 0;
+
+      if (L4.keys['ArrowLeft'] || L4.keys['a']) dx -= 1;
+      if (L4.keys['ArrowRight'] || L4.keys['d']) dx += 1;
+
+      if (L4.heart.mode === 'RED') {
+        if (L4.keys['ArrowUp'] || L4.keys['w']) dy -= 1;
+        if (L4.keys['ArrowDown'] || L4.keys['s']) dy += 1;
+
+        L4.heart.x += dx * speed;
+        L4.heart.y += dy * speed;
+      } else {
+        // 藍心模式：受到重力影響，按上跳躍
+        L4.heart.x += dx * speed;
+        
+        L4.blueVy += L4.blueGravity;
+        L4.heart.y += L4.blueVy;
+
+        const bottom = L4.box.y + L4.box.h - L4.heart.r - 4;
+        if (L4.heart.y >= bottom) {
+          L4.heart.y = bottom;
+          L4.blueVy = 0;
+          L4.isOnGround = true;
+        } else {
+          L4.isOnGround = false;
+        }
+
+        if ((L4.keys['ArrowUp'] || L4.keys['w'] || L4.keys[' ']) && L4.isOnGround) {
+          L4.blueVy = -6.5;
+          L4.isOnGround = false;
+          playSound('jump');
+        }
+      }
+
+      // 邊界限制
+      L4.heart.x = Math.max(L4.box.x + L4.heart.r + 4, Math.min(L4.box.x + L4.box.w - L4.heart.r - 4, L4.heart.x));
+      L4.heart.y = Math.max(L4.box.y + L4.heart.r + 4, Math.min(L4.box.y + L4.box.h - L4.heart.r - 4, L4.heart.y));
+
+      // 生成骨頭/白點彈幕
+      L4.spawnTimer += dt;
+      if (L4.spawnTimer > 0.25) {
+        L4.spawnTimer = 0;
+        // 4 個方向隨機發射
+        const side = Math.floor(Math.random() * 4);
+        let bx, by, bvx, bvy;
+        const bSpeed = 2.5 + (60 - timeLeft) * 0.05; // 隨時間加快速度
+
+        if (side === 0) { // Top
+          bx = L4.box.x + Math.random() * L4.box.w;
+          by = L4.box.y;
+          bvx = (Math.random() - 0.5) * 2;
+          bvy = bSpeed;
+        } else if (side === 1) { // Bottom
+          bx = L4.box.x + Math.random() * L4.box.w;
+          by = L4.box.y + L4.box.h;
+          bvx = (Math.random() - 0.5) * 2;
+          bvy = -bSpeed;
+        } else if (side === 2) { // Left
+          bx = L4.box.x;
+          by = L4.box.y + Math.random() * L4.box.h;
+          bvx = bSpeed;
+          bvy = (Math.random() - 0.5) * 2;
+        } else { // Right
+          bx = L4.box.x + L4.box.w;
+          by = L4.box.y + Math.random() * L4.box.h;
+          bvx = -bSpeed;
+          bvy = (Math.random() - 0.5) * 2;
+        }
+
+        L4.bullets.push({ x: bx, y: by, vx: bvx, vy: bvy, r: 4 });
+      }
+
+      // 更新彈幕與碰撞
+      for (let i = L4.bullets.length - 1; i >= 0; i--) {
+        let b = L4.bullets[i];
+        b.x += b.vx;
+        b.y += b.vy;
+
+        // 碰撞檢測
+        const dist = Math.hypot(b.x - L4.heart.x, b.y - L4.heart.y);
+        if (dist < b.r + L4.heart.r) {
+          if (L4.invincibleTimer <= 0) {
+            L4.heart.hp -= 15;
+            L4.invincibleTimer = 0.5; // 0.5秒無敵
+            playSound('hurt');
+            if (L4.heart.hp <= 0) {
+              gameOver("你的靈魂碎裂了！(HP歸零)");
+              return;
+            }
+          }
+        }
+
+        // 超出框刪除
+        if (b.x < L4.box.x - 20 || b.x > L4.box.x + L4.box.w + 20 ||
+            b.y < L4.box.y - 20 || b.y > L4.box.y + L4.box.h + 20) {
+          L4.bullets.splice(i, 1);
+        }
+      }
+
+      updateUIStats();
+    }
+
+    function drawLevel4() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 繪製 Undertale 經典戰鬥框
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 5;
+      ctx.strokeRect(L4.box.x, L4.box.y, L4.box.w, L4.box.h);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(L4.box.x, L4.box.y, L4.box.w, L4.box.h);
+
+      // 繪製心形 (紅心或藍心)
+      if (L4.invincibleTimer <= 0 || Math.floor(Date.now() / 100) % 2 === 0) {
+        ctx.fillStyle = L4.heart.mode === 'RED' ? '#ef4444' : '#3b82f6';
+        drawHeart(ctx, L4.heart.x, L4.heart.y, L4.heart.r);
+      }
+
+      // 繪製彈幕
+      ctx.fillStyle = '#ffffff';
+      for (let b of L4.bullets) {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 狀態提示資訊
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '16px monospace';
+      ctx.fillText(`模式: ${L4.heart.mode === 'RED' ? '紅心 (自由移動)' : '藍心 (重力跳躍)'}`, L4.box.x, L4.box.y - 15);
+
+      // HP 血條
+      ctx.fillText(`HP:`, L4.box.x, L4.box.y + L4.box.h + 30);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(L4.box.x + 40, L4.box.y + L4.box.h + 18, 150, 15);
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(L4.box.x + 40, L4.box.y + L4.box.h + 18, Math.max(0, L4.heart.hp * 1.5), 15);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`${L4.heart.hp} / 100`, L4.box.x + 200, L4.box.y + L4.box.h + 30);
+    }
+
+    // 繪製心形輔助函式
+    function drawHeart(ctx, x, y, size) {
+      ctx.beginPath();
+      ctx.arc(x - size / 2, y - size / 2, size / 2, Math.PI, 0, false);
+      ctx.arc(x + size / 2, y - size / 2, size / 2, Math.PI, 0, false);
+      ctx.lineTo(x, y + size);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // ==========================================
+    // 遊戲流程與主循環控制
+    // ==========================================
+    function updateUIStats() {
+      timerUI.innerText = Math.ceil(timeLeft);
+
+      if (currentLevel === 1) {
+        stat1Box.style.display = 'block';
+        stat2Box.style.display = 'block';
+        scoreUI.innerText = `${L1.playerHits} (AI: ${L1.aiHits})`;
+      } else if (currentLevel === 2) {
+        stat1Box.style.display = 'block';
+        stat2Box.style.display = 'block';
+        scoreUI.innerText = `${Math.floor(L2.distance)}m`;
+      } else if (currentLevel === 3) {
+        stat1Box.style.display = 'none';
+        stat2Box.style.display = 'block';
+        scoreUI.innerText = `第 ${L3.round}/3 回合`;
+      } else if (currentLevel === 4) {
+        stat1Box.style.display = 'block';
+        stat2Box.style.display = 'block';
+        scoreUI.innerText = `HP: ${L4.heart.hp}`;
+      }
+    }
+
+    function startLevel(lvl) {
+      currentLevel = lvl;
+      gameState = 'PLAYING';
+      overlay.classList.add('hidden');
+
+      if (gameTimer) clearInterval(gameTimer);
+
+      if (lvl === 1) initLevel1();
+      else if (lvl === 2) initLevel2();
+      else if (lvl === 3) initLevel3();
+      else if (lvl === 4) initLevel4();
+
+      // 秒數倒數計時器
+      if (lvl !== 3) { // 第三關靠回合觸發
+        gameTimer = setInterval(() => {
+          if (gameState === 'PLAYING') {
+            timeLeft--;
+            if (timeLeft <= 0) {
+              timeLeft = 0;
+              clearInterval(gameTimer);
+              checkLevelTimeUp();
+            }
+          }
+        }, 1000);
+      }
+    }
+
+    function checkLevelTimeUp() {
+      if (currentLevel === 1) {
+        if (L1.playerHits >= L1.aiHits) {
+          levelClear(`你贏了！擊中 ${L1.playerHits} 次 (AI: ${L1.aiHits} 次)`);
+        } else {
+          gameOver(`你輸了！擊中 ${L1.playerHits} 次 (AI: ${L1.aiHits} 次)`);
+        }
+      } else if (currentLevel === 2) {
+        if (L2.distance >= L2.targetDistance) {
+          levelClear("恭喜完成 2D 跑酷挑戰！");
+        } else {
+          gameOver(`時間到！未到達終點 (${Math.floor(L2.distance)} / ${L2.targetDistance}m)`);
+        }
+      } else if (currentLevel === 4) {
+        if (L4.heart.hp > 0) {
+          levelClear("你成功生存了 60 秒！成為真正的英雄！", true);
+        }
+      }
+    }
+
+    function levelClear(msg = "", isFinal = false) {
+      gameState = 'LEVEL_CLEAR';
+      playSound('win');
+      if (gameTimer) clearInterval(gameTimer);
+
+      if (isFinal) {
+        overlayTitle.innerText = "🏆 恭喜破關！全關卡通關！";
+        overlayDesc.innerText = msg || "你成功通過了全部 4 個艱難的挑戰！";
+        startBtn.innerText = "重新開始全關卡";
+        startBtn.onclick = () => startLevel(1);
+      } else {
+        overlayTitle.innerText = `第 ${currentLevel} 關 完成！`;
+        overlayDesc.innerText = msg || "順利通過本關，準備好挑戰下一關了嗎？";
+        startBtn.innerText = `進入第 ${currentLevel + 1} 關`;
+        startBtn.onclick = () => startLevel(currentLevel + 1);
+      }
+
+      overlay.classList.remove('hidden');
+    }
+
+    function gameOver(msg = "") {
+      gameState = 'GAMEOVER';
+      playSound('hurt');
+      if (gameTimer) clearInterval(gameTimer);
+
+      overlayTitle.innerText = "❌ 挑戰失敗";
+      overlayDesc.innerText = msg || "再接再厲，重新嘗試本關！";
+      startBtn.innerText = "重試本關";
+      startBtn.onclick = () => startLevel(currentLevel);
+
+      overlay.classList.remove('hidden');
+    }
+
+    // 主繪製與更新循環
+    function gameLoop(timestamp) {
+      const dt = (timestamp - lastTime) / 1000 || 0;
+      lastTime = timestamp;
+
+      if (gameState === 'PLAYING') {
+        if (currentLevel === 1) {
+          updateLevel1(dt);
+          drawLevel1();
+        } else if (currentLevel === 2) {
+          updateLevel2(dt);
+          drawLevel2();
+        } else if (currentLevel === 3) {
+          updateLevel3(dt);
+          drawLevel3();
+        } else if (currentLevel === 4) {
+          updateLevel4(dt);
+          drawLevel4();
+        }
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ===== 事件監聽 =====
+    window.addEventListener('keydown', (e) => {
+      if (gameState === 'PLAYING') {
+        if (currentLevel === 2 && (e.code === 'Space' || e.code === 'ArrowUp')) {
+          triggerJump();
+        }
+        if (currentLevel === 4) {
+          L4.keys[e.key] = true;
+          L4.keys[e.code] = true;
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (currentLevel === 4) {
+        L4.keys[e.key] = false;
+        L4.keys[e.code] = false;
+      }
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (gameState !== 'PLAYING') return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      if (currentLevel === 1) {
+        checkL1Click(mx, my);
+      } else if (currentLevel === 2) {
+        triggerJump();
+      } else if (currentLevel === 3) {
+        handleL3Click();
+      }
+    });
+
+    // 初始化按鈕事件
+    startBtn.onclick = () => startLevel(1);
+
+    // 啟動繪製循環
+    requestAnimationFrame(gameLoop);
+  </script>
 </body>
 </html>
